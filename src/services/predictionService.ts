@@ -121,19 +121,29 @@ export class PredictionService {
     // Try Groq LLM first
     const groqPrediction = await this.callGroqLLM(asset);
     if (groqPrediction) return groqPrediction;
-    // Fallback to old logic
+    // Fallback to enhanced logic with Firecrawl
 
+    // Collect enhanced data from Firecrawl (news, social sentiment, catalysts)
+    const enhancedData = await this.collectEnhancedData(asset.ticker, asset.type);
+    
     // Calculate various signal components
     const socialMomentum = this.calculateSocialMomentum(asset);
     const volumeSpike = this.calculateVolumeSpike(asset);
     const sentimentShift = this.calculateSentimentShift(asset);
     const technicalScore = await this.calculateTechnicalScore(asset);
 
+    // Enhance sentiment shift with Firecrawl data
+    const enhancedSentimentShift = this.calculateEnhancedSentimentShift(
+      sentimentShift, 
+      enhancedData.enhancedSentiment,
+      enhancedData.recentCatalysts
+    );
+
     // Combine signals for overall prediction
     const combinedScore = this.combineSignals({
       socialMomentum,
       volumeSpike,
-      sentimentShift,
+      sentimentShift: enhancedSentimentShift,
       technicalScore,
     });
 
@@ -143,13 +153,13 @@ export class PredictionService {
     const expectedMove = this.calculateExpectedMove(combinedScore, asset);
     const riskLevel = this.calculateRiskLevel(asset);
 
-    // Generate reasoning
-    const reasoning = this.generateReasoning(asset, {
+    // Generate enhanced reasoning with Firecrawl data
+    const reasoning = this.generateEnhancedReasoning(asset, {
       socialMomentum,
       volumeSpike,
-      sentimentShift,
+      sentimentShift: enhancedSentimentShift,
       technicalScore,
-    });
+    }, enhancedData);
 
     return {
       ticker: asset.ticker,
@@ -163,7 +173,7 @@ export class PredictionService {
       signals: {
         socialMomentum,
         volumeSpike,
-        sentimentShift,
+        sentimentShift: enhancedSentimentShift,
         technicalScore,
       },
     };
@@ -230,6 +240,29 @@ export class PredictionService {
     if (asset.memeScore >= 3) score += 15;
 
     return Math.min(100, Math.max(0, score));
+  }
+
+  /**
+   * Calculate enhanced sentiment shift using Firecrawl data
+   */
+  private calculateEnhancedSentimentShift(
+    baseSentiment: number, 
+    enhancedSentiment: number, 
+    catalysts: string[]
+  ): number {
+    let enhancedScore = baseSentiment;
+
+    // Boost sentiment based on Firecrawl data
+    if (enhancedSentiment > 0.7) enhancedScore += 20;
+    else if (enhancedSentiment > 0.6) enhancedScore += 15;
+    else if (enhancedSentiment < 0.4) enhancedScore -= 15;
+
+    // Additional boost for recent catalysts
+    if (catalysts.length > 0) {
+      enhancedScore += Math.min(15, catalysts.length * 3);
+    }
+
+    return Math.min(100, Math.max(0, enhancedScore));
   }
 
   /**
@@ -473,6 +506,51 @@ export class PredictionService {
     return reasoning.length > 0
       ? reasoning
       : ["Limited data available for prediction"];
+  }
+
+  /**
+   * Generate enhanced reasoning with Firecrawl data
+   */
+  private generateEnhancedReasoning(
+    asset: PredictionInput,
+    signals: {
+      socialMomentum: number;
+      volumeSpike: number;
+      sentimentShift: number;
+      technicalScore: number;
+    },
+    enhancedData: {
+      newsArticles: NewsArticle[];
+      socialMentions: SocialMention[];
+      enhancedSentiment: number;
+      newsSentiment: number;
+      socialSentiment: number;
+      recentCatalysts: string[];
+    }
+  ): string[] {
+    // Start with base reasoning
+    const reasoning = this.generateReasoning(asset, signals);
+
+    // Add Firecrawl-enhanced reasoning
+    if (enhancedData.newsArticles.length > 0) {
+      reasoning.push(`Recent news sentiment: ${enhancedData.newsSentiment > 0.6 ? 'Positive' : enhancedData.newsSentiment < 0.4 ? 'Negative' : 'Neutral'} (${enhancedData.newsArticles.length} articles analyzed)`);
+    }
+
+    if (enhancedData.socialMentions.length > 0) {
+      reasoning.push(`Social sentiment: ${enhancedData.socialSentiment > 0.6 ? 'Bullish' : enhancedData.socialSentiment < 0.4 ? 'Bearish' : 'Mixed'} (${enhancedData.socialMentions.length} mentions tracked)`);
+    }
+
+    if (enhancedData.recentCatalysts.length > 0) {
+      reasoning.push(`Recent catalysts detected: ${enhancedData.recentCatalysts.slice(0, 3).join(', ')}`);
+    }
+
+    if (enhancedData.enhancedSentiment > 0.7) {
+      reasoning.push("Strong positive sentiment across news and social media");
+    } else if (enhancedData.enhancedSentiment < 0.3) {
+      reasoning.push("Negative sentiment detected in recent coverage");
+    }
+
+    return reasoning;
   }
 
   /**

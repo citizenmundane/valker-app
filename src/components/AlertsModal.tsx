@@ -49,8 +49,8 @@ export const AlertsModal: React.FC<AlertsModalProps> = ({
 
       const success = assetDB.markAlertSent(assetId);
       if (success) {
-        // Remove from current list immediately for better UX
-        setAlertAssets((prev) => prev.filter((asset) => asset.id !== assetId));
+        // Reload alerts from database to ensure consistency
+        loadAlertAssets();
         // Call onUpdate to refresh the parent component's alert count
         onUpdate();
       } else {
@@ -77,10 +77,8 @@ export const AlertsModal: React.FC<AlertsModalProps> = ({
 
       await Promise.all(promises);
 
-      // Remove processed assets from current list
-      setAlertAssets((prev) =>
-        prev.filter((asset) => !selectedAssets.has(asset.id)),
-      );
+      // Reload alerts from database to ensure consistency
+      loadAlertAssets();
       setSelectedAssets(new Set());
       // Call onUpdate to refresh the parent component's alert count
       onUpdate();
