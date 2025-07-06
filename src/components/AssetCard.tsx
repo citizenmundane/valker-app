@@ -6,6 +6,11 @@ import {
   AlertTriangle,
   DollarSign,
   Clock,
+  Shield,
+  Eye,
+  Zap,
+  Brain,
+  Target
 } from "lucide-react";
 import { Asset } from "../types/Asset";
 import { getRecommendationColor, shouldTriggerAlert } from "../utils/scoring";
@@ -135,6 +140,54 @@ export const AssetCard: React.FC<AssetCardProps> = ({ asset, onClick }) => {
           </div>
         </div>
       </div>
+
+      {/* Enhanced Signal Intelligence Row */}
+      {(asset.sources && asset.sources.length > 0) && (
+        <div className="mt-2 pt-2 border-t border-gray-700/30">
+          <div className="flex items-center justify-between">
+            {/* Signal Sources */}
+            <div className="flex items-center space-x-1">
+              <Zap className="w-3 h-3 text-cyan-400" />
+              <span className="text-xs text-gray-400">Sources:</span>
+              <div className="flex space-x-1">
+                {asset.sources.slice(0, 2).map((source, i) => (
+                  <span
+                    key={i}
+                    className="px-1.5 py-0.5 bg-cyan-500/20 text-cyan-400 rounded text-xs"
+                    title={source}
+                  >
+                    {source.split(' ')[0]}
+                  </span>
+                ))}
+                {asset.sources.length > 2 && (
+                  <span className="px-1.5 py-0.5 bg-gray-500/20 text-gray-400 rounded text-xs">
+                    +{asset.sources.length - 2}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Enhanced Signal Badges */}
+            <div className="flex items-center space-x-1">
+              {asset.isPoliticalTrade && (
+                <div className="p-1 bg-purple-500/20 rounded" title="Insider Activity">
+                  <Eye className="w-3 h-3 text-purple-400" />
+                </div>
+              )}
+              {asset.unusualVolume && (
+                <div className="p-1 bg-orange-500/20 rounded" title="Unusual Volume">
+                  <TrendingUp className="w-3 h-3 text-orange-400" />
+                </div>
+              )}
+              {asset.isEarningsBased && (
+                <div className="p-1 bg-green-500/20 rounded" title="Earnings Signal">
+                  <Target className="w-3 h-3 text-green-400" />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Summary (truncated) */}
       {asset.gptSummary && (

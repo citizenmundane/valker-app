@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertTriangle, Eye, Brain, Plus } from "lucide-react";
+import { AlertTriangle, Eye, Brain, Plus, BarChart3 } from "lucide-react";
 
 interface HeaderProps {
   alertCount: number;
@@ -8,6 +8,7 @@ interface HeaderProps {
   onViewPending: () => void;
   onViewAlerts: () => void;
   onGeneratePredictions: () => void;
+  onViewDashboard?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   onViewPending,
   onViewAlerts,
   onGeneratePredictions,
+  onViewDashboard,
 }) => {
   return (
     <header className="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700/50 sticky top-0 z-40">
@@ -68,10 +70,20 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Brain className="w-5 h-5" />
           </button>
+          {/* Signal Dashboard */}
+          {onViewDashboard && (
+            <button
+              onClick={onViewDashboard}
+              className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white p-2 rounded-lg transition-colors"
+              title="Signal Dashboard"
+            >
+              <BarChart3 className="w-5 h-5" />
+            </button>
+          )}
           {/* Add Asset */}
           <button
             onClick={onAddAsset}
-            className="bg-cyan-600 hover:bg-cyan-700 text-white p-2 rounded-lg transition-colors"
+            className="bg-green-600 hover:bg-green-700 text-white p-2 rounded-lg transition-colors"
             title="Add Asset"
           >
             <Plus className="w-5 h-5" />

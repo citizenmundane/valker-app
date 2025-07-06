@@ -17,6 +17,7 @@ import { SettingsModal } from "./components/SettingsModal";
 import { PredictionCard } from "./components/PredictionCard";
 import PinnedPredictionCard from "./components/PinnedPredictionCard";
 import { PredictionModal } from "./components/PredictionModal";
+import { EnhancedDashboard } from "./components/EnhancedDashboard";
 import { Asset } from "./types/Asset";
 import { assetDB } from "./data/database";
 import { useAssetDiscovery } from "./hooks/useAssetDiscovery";
@@ -40,6 +41,7 @@ function App() {
   );
   const [hasInitialScan, setHasInitialScan] = useState(false);
   const [isPredictionModalOpen, setIsPredictionModalOpen] = useState(false);
+  const [isDashboardOpen, setIsDashboardOpen] = useState(false);
 
   // Initialize legacy asset discovery (keeping for backward compatibility)
   const { isScanning, triggerManualScan } = useAssetDiscovery();
@@ -180,6 +182,7 @@ function App() {
         onViewPending={() => setIsPendingModalOpen(true)}
         onViewAlerts={() => setIsAlertsOpen(true)}
         onGeneratePredictions={() => setIsPredictionModalOpen(true)}
+        onViewDashboard={() => setIsDashboardOpen(true)}
       />
 
       <div className="max-w-lg mx-auto px-4 py-6">
@@ -453,6 +456,15 @@ function App() {
           onRemovePrediction={removePrediction}
           isGenerating={isGeneratingPredictions}
           knownTickers={assets.map((a) => a.ticker)}
+        />
+      )}
+
+      {isDashboardOpen && (
+        <EnhancedDashboard
+          isOpen={isDashboardOpen}
+          onClose={() => setIsDashboardOpen(false)}
+          onTriggerScan={triggerManualScan}
+          isScanning={isAnyScanning}
         />
       )}
     </div>
