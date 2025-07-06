@@ -9,6 +9,10 @@ interface RedditMention {
   posts: number;
   source: string;
   rawMentions?: string[]; // For debug mode
+  emojiSentiment?: number; // New: emoji-based sentiment
+  userCredibility?: number; // New: average user credibility score
+  subredditWeight?: number; // New: weighted importance of subreddit
+  momentumScore?: number; // New: time-based momentum
 }
 
 interface RedditPost {
@@ -18,6 +22,11 @@ interface RedditPost {
     score?: number;
     num_comments?: number;
     upvote_ratio?: number;
+    author?: string;
+    created_utc?: number;
+    subreddit?: string;
+    distinguished?: string; // mod/admin posts
+    author_flair_text?: string;
   };
 }
 
@@ -230,6 +239,128 @@ export class RedditScanner {
     return upvoteScore * 0.4 + commentScore * 0.3 + ratioScore * 0.3;
   }
 
+  private analyzeEmojiSentiment(text: string): number {
+    // Emoji-based sentiment analysis for meme stocks/crypto
+    const bullishEmojis = [
+      '🚀', '💎', '📈', '🌙', '💰', '🔥', '⬆️', '🎯', '💪', '🙌',
+      '🎉', '✨', '⭐', '🏆', '👑', '🤑', '💸', '📊', '🔝', '💯'
+    ];
+    
+    const bearishEmojis = [
+      '📉', '💀', '🔻', '⬇️', '😭', '💸', '🩸', '☠️', '😵', '💔',
+      '🤡', '🤢', '🗑️', '⚰️', '🪦', '💥', '🌊', '❌', '👎', '😱'
+    ];
+
+    const neutralEmojis = [
+      '🤔', '🤷', '😐', '😑', '🫤', '😶', '🙄', '💭', '❓', '⚖️'
+    ];
+
+    let bullishCount = 0;
+    let bearishCount = 0;
+    let neutralCount = 0;
+
+    // Count emoji occurrences
+    bullishEmojis.forEach(emoji => {
+      const matches = text.match(new RegExp(emoji, 'g'));
+      if (matches) bullishCount += matches.length;
+    });
+
+    bearishEmojis.forEach(emoji => {
+      const matches = text.match(new RegExp(emoji, 'g'));
+      if (matches) bearishCount += matches.length;
+    });
+
+    neutralEmojis.forEach(emoji => {
+      const matches = text.match(new RegExp(emoji, 'g'));
+      if (matches) neutralCount += matches.length;
+    });
+
+    const total = bullishCount + bearishCount + neutralCount;
+    if (total === 0) return 0.5; // No emojis = neutral
+
+    // Weight: bullish=1, neutral=0.5, bearish=0
+    const weightedScore = (bullishCount * 1 + neutralCount * 0.5) / total;
+    return Math.max(0, Math.min(1, weightedScore));
+  }
+
+  private calculateUserCredibility(post: RedditPost): number {
+    // Estimate user credibility based on available data
+    const upvotes = post.data.score || 0;
+    const upvoteRatio = post.data.upvote_ratio || 0.5;
+    const distinguished = post.data.distinguished; // mod/admin status
+    const hasAuthorFlair = post.data.author_flair_text !== null;
+
+    let credibilityScore = 0.5; // Base score
+
+    // Boost for high-quality posts
+    if (upvotes > 50) credibilityScore += 0.2;
+    if (upvotes > 100) credibilityScore += 0.1;
+    if (upvoteRatio > 0.8) credibilityScore += 0.1;
+
+    // Boost for verified users
+    if (distinguished === 'moderator') credibilityScore += 0.3;
+    if (distinguished === 'admin') credibilityScore += 0.4;
+    if (hasAuthorFlair) credibilityScore += 0.1;
+
+    // Penalty for low-quality posts
+    if (upvotes < 5) credibilityScore -= 0.2;
+    if (upvoteRatio < 0.6) credibilityScore -= 0.1;
+
+    return Math.max(0, Math.min(1, credibilityScore));
+  }
+
+  private getSubredditWeight(subreddit: string): number {
+    // Weight different subreddits based on signal quality and volatility
+    const weights: Record<string, number> = {
+      // High volatility, meme-focused (higher weight for quick moves)
+      'wallstreetbets': 1.0,
+      'superstonk': 0.9,
+      'amcstock': 0.8,
+      'dogecoin': 0.8,
+      'shibarmy': 0.7,
+      
+      // Quality discussion (moderate weight)
+      'stocks': 0.8,
+      'investing': 0.7,
+      'securityanalysis': 0.9,
+      'valueinvesting': 0.8,
+      
+      // Crypto-focused (high weight for crypto signals)
+      'cryptocurrency': 0.9,
+      'cryptomarkets': 0.8,
+      'ethtrader': 0.8,
+      'bitcoin': 0.7,
+      'ethereum': 0.7,
+      
+      // Penny stocks and speculative
+      'pennystocks': 0.6,
+      'robinhoodpennystocks': 0.5,
+      
+      // Options and derivatives
+      'options': 0.8,
+      'thetagang': 0.7,
+      
+      // General finance
+      'personalfinance': 0.4,
+      'financialindependence': 0.3,
+    };
+
+    return weights[subreddit.toLowerCase()] || 0.5; // Default weight
+  }
+
+  private calculateMomentumScore(posts: Array<{ createdTime: number; score: number }>): number {
+    // Calculate time-based momentum (more recent posts weighted higher)
+    const now = Date.now() / 1000; // Unix timestamp
+    const timeWeightedScore = posts.reduce((total, post) => {
+      const ageHours = (now - post.createdTime) / 3600;
+      const timeWeight = Math.exp(-ageHours / 24); // Exponential decay over 24 hours
+      return total + (post.score * timeWeight);
+    }, 0);
+
+    const totalScore = posts.reduce((sum, post) => sum + post.score, 0);
+    return totalScore > 0 ? timeWeightedScore / totalScore : 0;
+  }
+
   async scanRedditMentions(): Promise<RedditScanResult> {
     console.log(
       "🔍 Starting enhanced Reddit scan with improved sentiment analysis...",
@@ -269,6 +400,10 @@ export class RedditScanner {
         posts: number;
         sentiment: number;
         rawMentions: string[];
+        emojiSentiment: number;
+        userCredibility: number;
+        subredditWeight: number;
+        postData: Array<{ createdTime: number; score: number }>;
       }
     >();
 
@@ -302,14 +437,25 @@ export class RedditScanner {
           const title = (post.data.title || "").toUpperCase();
           const body = (post.data.selftext || "").toUpperCase();
           const text = `${title} ${body}`;
+          const originalText = `${post.data.title || ""} ${post.data.selftext || ""}`;
 
-          // Enhanced scoring
+          // Enhanced scoring with new methods
           const engagementScore = this.calculateEngagementScore(post);
           const sentimentScore = this.analyzeSentiment(text);
-          const finalScore =
-            Math.max(post.data.score || 0, 1) *
-            engagementScore *
-            sentimentScore;
+          const emojiSentiment = this.analyzeEmojiSentiment(originalText);
+          const userCredibility = this.calculateUserCredibility(post);
+          const subredditWeight = this.getSubredditWeight(subreddit);
+
+          // Combined sentiment (text + emoji)
+          const combinedSentiment = (sentimentScore * 0.7) + (emojiSentiment * 0.3);
+
+          // Enhanced final score calculation
+          const baseScore = Math.max(post.data.score || 0, 1);
+          const finalScore = baseScore * 
+                           engagementScore * 
+                           combinedSentiment * 
+                           userCredibility * 
+                           subredditWeight;
 
           debugInfo.totalPosts++;
 
@@ -338,6 +484,10 @@ export class RedditScanner {
               posts: 0,
               sentiment: 0,
               rawMentions: [],
+              emojiSentiment: 0,
+              userCredibility: 0,
+              subredditWeight: 0,
+              postData: [],
             };
 
             tickerMentions.set(key, {
@@ -345,11 +495,21 @@ export class RedditScanner {
               count: current.count + 1,
               totalScore: current.totalScore + finalScore,
               posts: current.posts + 1,
-              sentiment: current.sentiment + sentimentScore,
+              sentiment: current.sentiment + combinedSentiment,
+              emojiSentiment: current.emojiSentiment + emojiSentiment,
+              userCredibility: current.userCredibility + userCredibility,
+              subredditWeight: Math.max(current.subredditWeight, subredditWeight),
+              postData: [
+                ...current.postData,
+                { 
+                  createdTime: post.data.created_utc || (Date.now() / 1000),
+                  score: post.data.score || 0
+                }
+              ],
               rawMentions: this.debugMode
                 ? [
                     ...current.rawMentions,
-                    `r/${subreddit}: ${title.substring(0, 50)}...`,
+                    `r/${subreddit}: ${title.substring(0, 50)}... [💎${emojiSentiment.toFixed(2)} 👤${userCredibility.toFixed(2)}]`,
                   ]
                 : [],
             });
@@ -371,6 +531,10 @@ export class RedditScanner {
               posts: 0,
               sentiment: 0,
               rawMentions: [],
+              emojiSentiment: 0,
+              userCredibility: 0,
+              subredditWeight: 0,
+              postData: [],
             };
 
             tickerMentions.set(key, {
@@ -378,11 +542,21 @@ export class RedditScanner {
               count: current.count + 1,
               totalScore: current.totalScore + finalScore,
               posts: current.posts + 1,
-              sentiment: current.sentiment + sentimentScore,
+              sentiment: current.sentiment + combinedSentiment,
+              emojiSentiment: current.emojiSentiment + emojiSentiment,
+              userCredibility: current.userCredibility + userCredibility,
+              subredditWeight: Math.max(current.subredditWeight, subredditWeight),
+              postData: [
+                ...current.postData,
+                { 
+                  createdTime: post.data.created_utc || (Date.now() / 1000),
+                  score: post.data.score || 0
+                }
+              ],
               rawMentions: this.debugMode
                 ? [
                     ...current.rawMentions,
-                    `r/${subreddit}: ${title.substring(0, 50)}...`,
+                    `r/${subreddit}: ${title.substring(0, 50)}... [💎${emojiSentiment.toFixed(2)} 👤${userCredibility.toFixed(2)}]`,
                   ]
                 : [],
             });
@@ -395,24 +569,35 @@ export class RedditScanner {
       }
     }
 
-    // Process and filter results
+    // Process and filter results with enhanced metrics
     const mentions: RedditMention[] = Array.from(tickerMentions.entries())
       .filter(([, data]) => data.count >= 3) // Minimum 3 mentions
       .map(([key, data]) => {
         const [ticker, type] = key.split("-");
+        const momentumScore = this.calculateMomentumScore(data.postData);
+        
         return {
           ticker,
           type: type as "Stock" | "Coin",
           mentions: data.count,
-          sentiment: data.sentiment / data.posts,
+          sentiment: data.sentiment / data.posts, // Combined text + emoji sentiment
           avgScore: data.totalScore / data.posts,
           posts: data.posts,
-          source: "Reddit",
+          source: "Reddit Enhanced",
+          emojiSentiment: data.emojiSentiment / data.posts,
+          userCredibility: data.userCredibility / data.posts,
+          subredditWeight: data.subredditWeight,
+          momentumScore: momentumScore,
           rawMentions: this.debugMode ? data.rawMentions : undefined,
         };
       })
-      .sort((a, b) => b.mentions - a.mentions)
-      .slice(0, 20); // Top 20 most mentioned
+      .sort((a, b) => {
+        // Enhanced sorting: combine mentions, sentiment, credibility, and momentum
+        const scoreA = (a.mentions * 0.4) + (a.sentiment * 0.2) + (a.userCredibility! * 0.2) + (a.momentumScore! * 0.2);
+        const scoreB = (b.mentions * 0.4) + (b.sentiment * 0.2) + (b.userCredibility! * 0.2) + (b.momentumScore! * 0.2);
+        return scoreB - scoreA;
+      })
+      .slice(0, 20); // Top 20 highest quality signals
 
     console.log(
       `✅ Reddit: Found ${mentions.length} trending tickers with enhanced sentiment`,

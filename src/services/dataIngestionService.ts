@@ -3,6 +3,10 @@ import { assetDB } from "../data/database";
 import { redditScanner } from "./redditScanner";
 import { googleTrendsService } from "./googleTrendsService";
 import { twitterSentimentService } from "./twitterSentimentService";
+import { secEdgarService } from "./secEdgarService";
+import { signalValidationService } from "./signalValidationService";
+import { alphaVantageService } from "./alphaVantageService";
+import { fearGreedService } from "./fearGreedService";
 
 interface DataSource {
   name: string;
@@ -127,6 +131,46 @@ class DataIngestionService {
           lastRun: null,
           interval: 24,
           priority: 2,
+        },
+      ],
+      [
+        "sec_edgar",
+        {
+          name: "SEC EDGAR Insider Trading",
+          enabled: true,
+          lastRun: null,
+          interval: 12,
+          priority: 5,
+        },
+      ],
+      [
+        "alpha_vantage",
+        {
+          name: "Alpha Vantage Market Data",
+          enabled: true,
+          lastRun: null,
+          interval: 6,
+          priority: 4,
+        },
+      ],
+      [
+        "fear_greed",
+        {
+          name: "Fear & Greed Index",
+          enabled: true,
+          lastRun: null,
+          interval: 4,
+          priority: 3,
+        },
+      ],
+      [
+        "google_trends_enhanced",
+        {
+          name: "Google Trends Spike Detection",
+          enabled: true,
+          lastRun: null,
+          interval: 8,
+          priority: 4,
         },
       ],
     ];
@@ -755,6 +799,18 @@ class DataIngestionService {
           case "google":
             signals = await this.scanGoogleTrends();
             break;
+          case "sec_edgar":
+            signals = await this.scanSECEdgar();
+            break;
+          case "alpha_vantage":
+            signals = await this.scanAlphaVantage();
+            break;
+          case "fear_greed":
+            signals = await this.scanFearGreed();
+            break;
+          case "google_trends_enhanced":
+            signals = await this.scanGoogleTrendsEnhanced();
+            break;
         }
 
         source.lastRun = new Date();
@@ -908,6 +964,240 @@ class DataIngestionService {
 
     // Process and deduplicate
     return this.processAndDeduplicateSignals(allSignals);
+  }
+
+  // New enhanced scanning methods
+
+  private async scanSECEdgar(): Promise<SignalData[]> {
+    console.log("📋 Scanning SEC EDGAR for insider trading...");
+    
+    try {
+      const insiderSignals = await secEdgarService.getRecentInsiderTrading(7);
+      const signals: SignalData[] = [];
+
+      insiderSignals.forEach(signal => {
+        signals.push({
+          ticker: signal.ticker,
+          type: signal.type,
+          memeScore: 0,
+          politicalScore: signal.signalType === "insider_buying" ? 3 : 0,
+          earningsScore: 0,
+          signalSource: "SEC EDGAR",
+          confidence: signal.confidence,
+          summary: signal.summary,
+          metadata: {
+            insiderActivity: true,
+            signalType: signal.signalType,
+            totalValue: signal.totalValue,
+            netBuying: signal.netBuying
+          },
+          isPoliticalTrade: true
+        });
+      });
+
+      console.log(`✅ SEC EDGAR: Found ${signals.length} insider trading signals`);
+      return signals;
+
+    } catch (error) {
+      console.error("❌ SEC EDGAR scan failed:", error);
+      return [];
+    }
+  }
+
+  private async scanAlphaVantage(): Promise<SignalData[]> {
+    console.log("📊 Scanning Alpha Vantage for market signals...");
+    
+    try {
+      if (alphaVantageService.getRemainingCalls() < 3) {
+        console.log("⚠️ Alpha Vantage: Not enough API calls remaining");
+        return [];
+      }
+
+      const [unusualActivity, earningsSignals] = await Promise.all([
+        alphaVantageService.detectUnusualActivity(),
+        alphaVantageService.getEarningsSignals()
+      ]);
+
+      const signals: SignalData[] = [];
+
+      [...unusualActivity, ...earningsSignals].forEach(signal => {
+        signals.push({
+          ticker: signal.ticker,
+          type: signal.type,
+          memeScore: signal.signalType === "unusual_volume" ? 2 : 0,
+          politicalScore: 0,
+          earningsScore: signal.signalType === "earnings_surprise" ? 2 : 0,
+          signalSource: "Alpha Vantage",
+          confidence: signal.confidence,
+          summary: signal.summary,
+          metadata: signal.metadata,
+          unusualVolume: signal.signalType === "unusual_volume",
+          isEarningsBased: signal.signalType === "earnings_surprise"
+        });
+      });
+
+      console.log(`✅ Alpha Vantage: Found ${signals.length} market signals`);
+      return signals;
+
+    } catch (error) {
+      console.error("❌ Alpha Vantage scan failed:", error);
+      return [];
+    }
+  }
+
+  private async scanFearGreed(): Promise<SignalData[]> {
+    console.log("😱 Scanning Fear & Greed Index...");
+    
+    try {
+      const sentimentSignals = await fearGreedService.getAllSentimentSignals();
+      const signals: SignalData[] = [];
+
+      sentimentSignals.forEach(signal => {
+        const isExtreme = signal.fearGreedValue <= 20 || signal.fearGreedValue >= 80;
+        
+        signals.push({
+          ticker: signal.ticker,
+          type: signal.type as "Stock" | "Coin",
+          memeScore: signal.signalType === "fear_greed_shift" ? 1 : 0,
+          politicalScore: 0,
+          earningsScore: 0,
+          signalSource: "Fear & Greed Index",
+          confidence: signal.confidence,
+          summary: signal.summary,
+          metadata: {
+            fearGreedValue: signal.fearGreedValue,
+            classification: signal.classification,
+            isExtreme,
+            ...signal.metadata
+          }
+        });
+      });
+
+      console.log(`✅ Fear & Greed: Found ${signals.length} sentiment signals`);
+      return signals;
+
+    } catch (error) {
+      console.error("❌ Fear & Greed scan failed:", error);
+      return [];
+    }
+  }
+
+  private async scanGoogleTrendsEnhanced(): Promise<SignalData[]> {
+    console.log("📈 Scanning enhanced Google Trends with spike detection...");
+    
+    try {
+      const [spikingTickers, breakoutSignals] = await Promise.all([
+        googleTrendsService.getSpikingTickers(),
+        googleTrendsService.getBreakoutSignals()
+      ]);
+
+      const signals: SignalData[] = [];
+
+      // Process spiking tickers
+      spikingTickers.forEach(trend => {
+        const assetType = this.determineAssetType(trend.ticker);
+        const memeScore = Math.min(4, Math.floor((trend.spikeIntensity || 0) / 25) + (trend.spikeDetected ? 2 : 0));
+        
+        signals.push({
+          ticker: trend.ticker,
+          type: assetType,
+          memeScore,
+          politicalScore: 0,
+          earningsScore: 0,
+          signalSource: "Google Trends Enhanced",
+          confidence: Math.min(90, 50 + (trend.spikeIntensity || 0) / 2),
+          summary: `${trend.ticker} trending spike detected: ${trend.spikeIntensity?.toFixed(0)}% intensity, ${trend.trendDirection} momentum`,
+          metadata: {
+            spikeDetected: trend.spikeDetected,
+            spikeIntensity: trend.spikeIntensity,
+            momentum: trend.momentum,
+            volatility: trend.volatility,
+            trendDirection: trend.trendDirection,
+            trendScore: trend.trendScore
+          }
+        });
+      });
+
+      // Process breakout signals (higher quality)
+      breakoutSignals.forEach(trend => {
+        const assetType = this.determineAssetType(trend.ticker);
+        
+        signals.push({
+          ticker: trend.ticker,
+          type: assetType,
+          memeScore: 3, // Breakouts get higher meme score
+          politicalScore: 0,
+          earningsScore: 0,
+          signalSource: "Google Trends Breakout",
+          confidence: 85,
+          summary: `${trend.ticker} breakout pattern detected with ${trend.trendDirection} trend`,
+          metadata: {
+            isBreakout: true,
+            spikeIntensity: trend.spikeIntensity,
+            momentum: trend.momentum,
+            volatility: trend.volatility,
+            trendDirection: trend.trendDirection
+          }
+        });
+      });
+
+      console.log(`✅ Enhanced Google Trends: Found ${signals.length} enhanced signals`);
+      return signals;
+
+    } catch (error) {
+      console.error("❌ Enhanced Google Trends scan failed:", error);
+      return [];
+    }
+  }
+
+  // Enhanced scanAllSources with signal validation
+  async scanAllSourcesEnhanced(): Promise<SignalData[]> {
+    console.log("🔍 Starting enhanced market scan with cross-source validation...");
+
+    const allSignals = await this.scanAllSources();
+    
+    // Add signals to validation service
+    signalValidationService.addSignals(
+      allSignals.map(signal => ({
+        name: signal.signalSource,
+        ticker: signal.ticker,
+        type: signal.type,
+        confidence: signal.confidence,
+        sentiment: 0.5, // Default neutral - could be enhanced
+        timestamp: new Date(),
+        metadata: signal.metadata
+      }))
+    );
+
+    // Get validated high-confidence signals
+    const validatedSignals = signalValidationService.getHighConfidenceSignals(70);
+    
+    console.log(`✅ Enhanced scan: ${allSignals.length} raw signals, ${validatedSignals.length} high-confidence validated`);
+    
+    // Convert back to SignalData format with enhanced metadata
+    const enhancedSignals: SignalData[] = validatedSignals.map(validated => {
+      const originalSignal = allSignals.find(s => s.ticker === validated.ticker);
+      return {
+        ticker: validated.ticker,
+        type: validated.type,
+        memeScore: originalSignal?.memeScore || 0,
+        politicalScore: originalSignal?.politicalScore || 0,
+        earningsScore: originalSignal?.earningsScore || 0,
+        signalSource: "Cross-Validated",
+        confidence: validated.overallConfidence,
+        summary: validated.summary,
+        metadata: {
+          ...originalSignal?.metadata,
+          crossSourceScore: validated.crossSourceScore,
+          riskLevel: validated.riskLevel,
+          recommendation: validated.recommendation,
+          sourceCount: validated.sources.length,
+          validationFlags: validated.validationFlags
+        }
+      };
+    });
+
+    return enhancedSignals;
   }
 }
 
