@@ -21,7 +21,7 @@ interface SignalData {
   signalSource: string;
   confidence: number;
   summary: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   // New retention fields
   unusualVolume?: boolean;
   isPoliticalTrade?: boolean;
@@ -300,7 +300,7 @@ class DataIngestionService {
           if (this.meetsQualityThreshold(signal)) {
             signals.push(signal);
           }
-        } catch (marketDataError) {
+        } catch {
           console.warn(
             `⚠️ Failed to fetch market data for ${coinData.symbol}, skipping`,
           );
@@ -429,8 +429,6 @@ class DataIngestionService {
       const signals: SignalData[] = [];
 
       for (const trend of allTrends) {
-        const trendScore = this.calculateTrendScore(trend.trendScore);
-
         const signal: SignalData = {
           ticker: trend.ticker,
           type: this.determineAssetType(trend.ticker),
@@ -711,7 +709,7 @@ class DataIngestionService {
     lastRun: Date | null;
     nextRun: Date | null;
   }> {
-    return Array.from(this.dataSources.entries()).map(([key, source]) => ({
+    return Array.from(this.dataSources.entries()).map(([, source]) => ({
       name: source.name,
       enabled: source.enabled,
       lastRun: source.lastRun,
@@ -722,7 +720,7 @@ class DataIngestionService {
   }
 
   toggleDataSource(sourceName: string, enabled: boolean): boolean {
-    for (const [key, source] of this.dataSources.entries()) {
+    for (const [, source] of this.dataSources.entries()) {
       if (source.name === sourceName) {
         source.enabled = enabled;
         return true;
@@ -789,9 +787,15 @@ class DataIngestionService {
   }
 
   private determineAssetType(ticker: string): "Stock" | "Coin" {
-    // Implement the logic to determine the asset type based on the ticker
-    // This is a placeholder and should be replaced with the actual implementation
-    return "Stock"; // Placeholder return, actual implementation needed
+    // Common crypto tickers
+    const cryptoTickers = [
+      "BTC", "ETH", "BNB", "XRP", "ADA", "SOL", "DOGE", "DOT", "AVAX", "SHIB",
+      "MATIC", "LTC", "UNI", "LINK", "ATOM", "XLM", "VET", "FIL", "TRX", "ETC",
+      "HBAR", "ALGO", "ICP", "NEAR", "FLOW", "MANA", "SAND", "AXS", "CHZ", "ENJ",
+      "PEPE", "FLOKI", "BONK", "WIF", "BOME"
+    ];
+    
+    return cryptoTickers.includes(ticker.toUpperCase()) ? "Coin" : "Stock";
   }
 
   private async scanTwitterMentions(): Promise<SignalData[]> {

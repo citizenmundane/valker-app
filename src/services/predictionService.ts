@@ -665,7 +665,7 @@ export class PredictionService {
   /**
    * Collect enhanced data using Firecrawl for better predictions
    */
-  async collectEnhancedData(ticker: string, type: "Stock" | "Coin"): Promise<{
+  async collectEnhancedData(ticker: string, _type: "Stock" | "Coin"): Promise<{
     newsArticles: NewsArticle[];
     socialMentions: SocialMention[];
     enhancedSentiment: number;

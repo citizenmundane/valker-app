@@ -217,7 +217,7 @@ export class PriceAggregator {
         if (quote) {
           quotes.push(quote);
         }
-      } catch (error) {
+      } catch {
         // Silently continue for comparison
       }
     }

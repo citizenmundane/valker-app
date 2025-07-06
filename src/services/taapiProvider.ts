@@ -1,5 +1,12 @@
 import { TechnicalAnalysis, TechnicalIndicator, TechnicalAnalysisProvider } from './priceProviders/types';
 
+interface TaapiResponse {
+  value?: number;
+  result?: number;
+  error?: string;
+  signal?: string;
+}
+
 const TAAPI_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbHVlIjoiNjg2MzA0OWI4MDZmZjE2NTFlYTIxYzYxIiwiaWF0IjoxNzUxMzE5NzQ5LCJleHAiOjMzMjU1NzgzNzQ5fQ.ZpD8Kb5HSsACNE8IX_zxVxykZQLXXEpPvrhFzTGX0eo';
 const TAAPI_BASE_URL = 'https://api.taapi.io';
 
@@ -9,7 +16,7 @@ export class TaapiProvider implements TechnicalAnalysisProvider {
   private readonly rateLimit = 100; // requests per minute
   private readonly rateLimitWindow = 60000; // 1 minute in ms
 
-  private async makeRequest(endpoint: string, params: Record<string, any> = {}): Promise<any> {
+  private async makeRequest(endpoint: string, params: Record<string, unknown> = {}): Promise<TaapiResponse> {
     // Rate limiting
     const now = Date.now();
     if (now - this.lastRequest < this.rateLimitWindow / this.rateLimit) {
@@ -42,7 +49,7 @@ export class TaapiProvider implements TechnicalAnalysisProvider {
     }
   }
 
-  async fetchIndicator(symbol: string, indicator: string, params: Record<string, any> = {}): Promise<TechnicalIndicator | null> {
+  async fetchIndicator(symbol: string, indicator: string, params: Record<string, unknown> = {}): Promise<TechnicalIndicator | null> {
     try {
       const data = await this.makeRequest(`/${indicator}`, {
         symbol: symbol,
@@ -162,7 +169,7 @@ export class TaapiProvider implements TechnicalAnalysisProvider {
     }
   }
 
-  private interpretSignal(data: any): 'buy' | 'sell' | 'neutral' {
+  private interpretSignal(data: TaapiResponse): 'buy' | 'sell' | 'neutral' {
     // Basic signal interpretation based on indicator values
     if (data.signal) {
       return data.signal.toLowerCase() as 'buy' | 'sell' | 'neutral';

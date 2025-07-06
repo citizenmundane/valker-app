@@ -6,6 +6,14 @@ interface TrendData {
   source: "Google Trends";
 }
 
+interface GoogleTrendsTimelineData {
+  value: number[];
+}
+
+interface GoogleTrendsResponse {
+  timelineData: GoogleTrendsTimelineData[];
+}
+
 export class GoogleTrendsService {
   private requestDelay = 2000; // 2 seconds between requests
   private failedTickers = new Set<string>();
@@ -113,7 +121,7 @@ export class GoogleTrendsService {
       }
 
       // Parse the Google Trends response
-      const trendsData = JSON.parse(data.contents.replace(")]}'", ""));
+      const trendsData = JSON.parse(data.contents.replace(")]}'", "")) as GoogleTrendsResponse;
 
       if (!trendsData.timelineData || trendsData.timelineData.length === 0) {
         return null;
@@ -123,7 +131,7 @@ export class GoogleTrendsService {
       const recentData = trendsData.timelineData.slice(-7); // Last 7 days
       const avgInterest =
         recentData.reduce(
-          (sum: number, day: any) => sum + (day.value[0] || 0),
+          (sum: number, day: GoogleTrendsTimelineData) => sum + (day.value[0] || 0),
           0,
         ) / recentData.length;
 
@@ -131,7 +139,7 @@ export class GoogleTrendsService {
       const olderData = trendsData.timelineData.slice(-14, -7);
       const olderAvg =
         olderData.reduce(
-          (sum: number, day: any) => sum + (day.value[0] || 0),
+          (sum: number, day: GoogleTrendsTimelineData) => sum + (day.value[0] || 0),
           0,
         ) / olderData.length;
 

@@ -34,6 +34,37 @@ interface StockData {
   source: string;
 }
 
+interface RedditApiResponse {
+  data: {
+    children: Array<{
+      data: {
+        title: string;
+        selftext?: string;
+        score?: number;
+      };
+    }>;
+  };
+}
+
+interface CoinGeckoTrendingResponse {
+  coins: Array<{
+    item: {
+      id: string;
+      symbol: string;
+      name: string;
+    };
+  }>;
+}
+
+interface CoinGeckoMarketData {
+  symbol: string;
+  name: string;
+  price_change_percentage_24h?: number;
+  market_cap_rank?: number;
+  total_volume?: number;
+  market_cap?: number;
+}
+
 class APIService {
   private async delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -94,9 +125,9 @@ class APIService {
 
         if (!response.ok) continue;
 
-        const data = await response.json();
+        const data = await response.json() as RedditApiResponse;
 
-        data.data.children.forEach((post: any) => {
+        data.data.children.forEach((post) => {
           const title = post.data.title.toUpperCase();
           const body = (post.data.selftext || "").toUpperCase();
           const text = `${title} ${body}`;
@@ -236,14 +267,14 @@ class APIService {
       const trendingResponse = await this.fetchWithRetry(
         "https://api.coingecko.com/api/v3/search/trending",
       );
-      const trending = await trendingResponse.json();
+      const trending = await trendingResponse.json() as CoinGeckoTrendingResponse;
 
       if (!trending.coins) return [];
 
       // Get detailed market data
       const coinIds = trending.coins
         .slice(0, 15)
-        .map((coin: any) => coin.item.id)
+        .map((coin) => coin.item.id)
         .join(",");
 
       await this.delay(API_CONFIG.COINGECKO_DELAY);
@@ -252,13 +283,13 @@ class APIService {
         `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${coinIds}&order=market_cap_desc&per_page=15&page=1&sparkline=false&price_change_percentage=24h,7d`,
       );
 
-      const marketData = await marketResponse.json();
+      const marketData = await marketResponse.json() as CoinGeckoMarketData[];
 
       if (!Array.isArray(marketData)) return [];
 
       console.log(`✅ Found ${marketData.length} trending coins`);
 
-      return marketData.map((coin: any) => ({
+      return marketData.map((coin) => ({
         ticker: coin.symbol.toUpperCase(),
         name: coin.name,
         priceChange24h: coin.price_change_percentage_24h || 0,

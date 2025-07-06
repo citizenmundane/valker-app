@@ -5,12 +5,21 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
-  Save,
-  RefreshCw,
-  Eye,
 } from "lucide-react";
 import { pricingService } from "../services/pricingService";
 import { PriceSourceStatus } from "../types/PriceData";
+
+interface CacheEntry {
+  symbol: string;
+  source: string;
+  price: number;
+  age: number;
+}
+
+interface CacheStats {
+  size: number;
+  entries: CacheEntry[];
+}
 
 interface PriceSourceSettingsProps {
   isOpen: boolean;
@@ -22,7 +31,7 @@ export const PriceSourceSettings: React.FC<PriceSourceSettingsProps> = ({
   onClose,
 }) => {
   const [providers, setProviders] = useState<PriceSourceStatus[]>([]);
-  const [cacheStats, setCacheStats] = useState<any>(null);
+  const [cacheStats, setCacheStats] = useState<CacheStats | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -197,7 +206,7 @@ export const PriceSourceSettings: React.FC<PriceSourceSettingsProps> = ({
                       <div className="text-2xl font-bold text-green-400">
                         {
                           cacheStats.entries.filter(
-                            (e: any) => e.age < 5 * 60 * 1000,
+                            (e: CacheEntry) => e.age < 5 * 60 * 1000,
                           ).length
                         }
                       </div>
@@ -209,7 +218,7 @@ export const PriceSourceSettings: React.FC<PriceSourceSettingsProps> = ({
                       <div className="text-2xl font-bold text-yellow-400">
                         {
                           cacheStats.entries.filter(
-                            (e: any) => e.age >= 5 * 60 * 1000,
+                            (e: CacheEntry) => e.age >= 5 * 60 * 1000,
                           ).length
                         }
                       </div>
@@ -227,7 +236,7 @@ export const PriceSourceSettings: React.FC<PriceSourceSettingsProps> = ({
                       <div className="space-y-2 max-h-40 overflow-y-auto">
                         {cacheStats.entries
                           .slice(0, 10)
-                          .map((entry: any, index: number) => (
+                          .map((entry: CacheEntry, index: number) => (
                             <div
                               key={index}
                               className="flex items-center justify-between text-sm"

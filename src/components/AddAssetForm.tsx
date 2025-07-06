@@ -30,23 +30,29 @@ export const AddAssetForm: React.FC<AddAssetFormProps> = ({
     e.preventDefault();
     if (!formData.ticker.trim()) return;
 
-    assetDB.createAsset({
-      ...formData,
-      ticker: formData.ticker.toUpperCase(),
-    });
+    try {
+      assetDB.createAsset({
+        ...formData,
+        ticker: formData.ticker.toUpperCase(),
+      });
 
-    // Reset form
-    setFormData({
-      ticker: "",
-      type: "Stock",
-      memeScore: 0,
-      politicalScore: 0,
-      earningsScore: 0,
-      gptSummary: "",
-    });
+      // Reset form
+      setFormData({
+        ticker: "",
+        type: "Stock",
+        memeScore: 0,
+        politicalScore: 0,
+        earningsScore: 0,
+        gptSummary: "",
+      });
 
-    onAdd();
-    onClose();
+      onAdd();
+      onClose();
+    } catch (error) {
+      console.error("Failed to create asset:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to create asset. Please try again.";
+      alert(errorMessage);
+    }
   };
 
   const totalScore = calculateTotalScore(

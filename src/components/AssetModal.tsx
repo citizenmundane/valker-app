@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import {
   X,
   AlertTriangle,
-  CheckCircle,
   Edit3,
   Save,
   TrendingUp,
@@ -60,10 +59,6 @@ export const AssetModal: React.FC<AssetModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleMarkAlertSent = () => {
-    assetDB.markAlertSent(asset.id);
-    onUpdate();
-  };
 
   const handleSaveSummary = () => {
     assetDB.updateAsset(asset.id, { gptSummary: summaryText });

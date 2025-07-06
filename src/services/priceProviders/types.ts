@@ -63,5 +63,5 @@ export interface TechnicalAnalysis {
 
 export interface TechnicalAnalysisProvider {
   fetchTechnicalAnalysis(symbol: string): Promise<TechnicalAnalysis | null>;
-  fetchIndicator(symbol: string, indicator: string, params?: Record<string, any>): Promise<TechnicalIndicator | null>;
+  fetchIndicator(symbol: string, indicator: string, params?: Record<string, unknown>): Promise<TechnicalIndicator | null>;
 }

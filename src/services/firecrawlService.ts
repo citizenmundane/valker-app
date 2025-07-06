@@ -1,5 +1,3 @@
-import { assetDB } from '../data/database';
-
 // Firecrawl MCP Configuration
 const FIRECRAWL_API_KEY = import.meta.env.VITE_FIRECRAWL_API_KEY;
 const FIRECRAWL_BASE_URL = 'https://api.firecrawl.dev';
@@ -56,7 +54,7 @@ export class FirecrawlService {
   private readonly rateLimit = 50; // requests per minute
   private readonly rateLimitWindow = 60000; // 1 minute in ms
 
-  private async makeRequest(endpoint: string, params: Record<string, any> = {}): Promise<any> {
+  private async makeRequest(endpoint: string, params: Record<string, unknown> = {}): Promise<unknown> {
     // Rate limiting
     const now = Date.now();
     if (now - this.lastRequest < this.rateLimitWindow / this.rateLimit) {
@@ -258,7 +256,7 @@ export class FirecrawlService {
                 const sentiment = this.analyzeSentiment(scrapedData.data.text || '');
                 
                 mentions.push({
-                  platform: platform as any,
+                  platform: platform as 'twitter' | 'reddit' | 'discord' | 'telegram' | 'other',
                   content: scrapedData.data.text || scrapedData.data.content || '',
                   url: result.url,
                   author: this.extractAuthor(result.url, platform),

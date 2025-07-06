@@ -56,7 +56,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         isConnected,
         lastTest: new Date(),
       });
-    } catch (error) {
+    } catch {
       setTaapiStatus({
         isTesting: false,
         isConnected: false,
@@ -74,7 +74,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         isConnected,
         lastTest: new Date(),
       });
-    } catch (error) {
+    } catch {
       setFirecrawlStatus({
         isTesting: false,
         isConnected: false,

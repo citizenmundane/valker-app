@@ -6,6 +6,35 @@ import {
 } from "../types/Asset";
 import { calculateTotalScore, getRecommendation } from "../utils/scoring";
 
+interface StoredAsset {
+  ticker: string;
+  type: "Stock" | "Coin";
+  createdAt: string;
+  updatedAt: string;
+  lastPriceUpdate?: string;
+  livePrice?: number;
+  priceChange24h?: number;
+  percentChange24h?: number;
+  sources?: string[];
+  unusualVolume?: boolean;
+  isPoliticalTrade?: boolean;
+  isEarningsBased?: boolean;
+  visibility?: "visible" | "hidden" | "deleted";
+  [key: string]: unknown;
+}
+
+interface StoredPendingAsset {
+  id: string;
+  ticker: string;
+  type: "Stock" | "Coin";
+  discoveredAt: string;
+  unusualVolume?: boolean;
+  isPoliticalTrade?: boolean;
+  isEarningsBased?: boolean;
+  visibility?: "visible" | "hidden" | "deleted";
+  [key: string]: unknown;
+}
+
 const STORAGE_KEY = "alpha_machine_assets";
 const PENDING_STORAGE_KEY = "alpha_machine_pending_assets";
 
@@ -27,7 +56,7 @@ class AssetDatabase {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
-        this.assets = JSON.parse(stored).map((asset: any) => ({
+        this.assets = JSON.parse(stored).map((asset: StoredAsset) => ({
           ...asset,
           createdAt: new Date(asset.createdAt),
           updatedAt: new Date(asset.updatedAt),
@@ -62,7 +91,7 @@ class AssetDatabase {
     const pendingStored = localStorage.getItem(PENDING_STORAGE_KEY);
     if (pendingStored) {
       try {
-        this.pendingAssets = JSON.parse(pendingStored).map((asset: any) => ({
+        this.pendingAssets = JSON.parse(pendingStored).map((asset: StoredPendingAsset) => ({
           ...asset,
           discoveredAt: new Date(asset.discoveredAt),
           // Ensure new fields have defaults
@@ -227,6 +256,12 @@ class AssetDatabase {
   }
 
   createAsset(data: AssetFormData): Asset {
+    // Check if asset already exists
+    const existingAsset = this.assets.find((asset) => asset.ticker === data.ticker.toUpperCase());
+    if (existingAsset) {
+      throw new Error(`Asset ${data.ticker} already exists`);
+    }
+
     const totalScore = calculateTotalScore(
       data.memeScore,
       data.politicalScore,
@@ -237,6 +272,7 @@ class AssetDatabase {
     const asset: Asset = {
       id: Date.now().toString(),
       ...data,
+      ticker: data.ticker.toUpperCase(),
       totalScore,
       recommendation,
       alertSent: false,
@@ -249,14 +285,7 @@ class AssetDatabase {
       updatedAt: new Date(),
     };
 
-    // Check if this is an "On Watch" asset that should be auto-deleted
-    if (recommendation === "On Watch" && !this.meetsRetentionCriteria(asset)) {
-      console.log(
-        `🗑️ Auto-deleting On Watch asset: ${asset.ticker} (no retention criteria met)`,
-      );
-      return asset; // Return but don't save
-    }
-
+    // Always add manually created assets (don't auto-delete user-created assets)
     this.assets.push(asset);
     this.saveToStorage();
     return asset;

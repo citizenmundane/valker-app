@@ -16,7 +16,7 @@ interface AssetCardProps {
   onPredict: (ticker: string) => void;
 }
 
-export const AssetCard: React.FC<AssetCardProps> = ({ asset, onClick, onPredict }) => {
+export const AssetCard: React.FC<AssetCardProps> = ({ asset, onClick }) => {
   const colorClass = getRecommendationColor(asset.recommendation);
   const needsAlert = shouldTriggerAlert(asset);
 

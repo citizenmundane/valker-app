@@ -1,6 +1,12 @@
 import { PriceData } from "../types/Asset";
 import { PriceAggregator } from "./priceProviders/priceAggregator";
 
+interface CoinGeckoCoin {
+  id: string;
+  symbol: string;
+  name: string;
+}
+
 class PricingService {
   private lastUpdateTime: Date | null = null;
   private updateInterval: number = 5 * 60 * 1000; // 5 minutes
@@ -122,13 +128,13 @@ class PricingService {
       const response = await this.fetchWithRetry(
         "https://api.coingecko.com/api/v3/coins/list",
       );
-      const coins = await response.json();
+      const coins = await response.json() as CoinGeckoCoin[];
 
       const tickerToId: Record<string, string> = {};
 
       tickers.forEach((ticker) => {
         const coin = coins.find(
-          (c: any) => c.symbol.toLowerCase() === ticker.toLowerCase(),
+          (c) => c.symbol.toLowerCase() === ticker.toLowerCase(),
         );
         if (coin) {
           tickerToId[ticker] = coin.id;
@@ -268,6 +274,19 @@ class PricingService {
 
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  getCacheStats() {
+    // Return mock cache stats for now since we don't have caching implemented
+    return {
+      size: 0,
+      entries: []
+    };
+  }
+
+  clearCache() {
+    // No-op for now since we don't have caching implemented
+    console.log("📦 Cache cleared");
   }
 }
 

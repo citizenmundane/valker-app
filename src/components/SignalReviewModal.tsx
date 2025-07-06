@@ -37,6 +37,13 @@ interface FilterState {
   hideOnWatch: boolean;
 }
 
+interface RedditDebugInfo {
+  totalPosts: number;
+  rawExtractions: string[];
+  filteredOut: string[];
+  subredditsScanned: string[];
+}
+
 export const SignalReviewModal: React.FC<SignalReviewModalProps> = ({
   isOpen,
   onClose,
@@ -55,7 +62,7 @@ export const SignalReviewModal: React.FC<SignalReviewModalProps> = ({
   const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
-  const [redditDebugInfo, setRedditDebugInfo] = useState<any>(null);
+  const [redditDebugInfo, setRedditDebugInfo] = useState<RedditDebugInfo | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     source: "All",
     scoreRange: [0, 9],

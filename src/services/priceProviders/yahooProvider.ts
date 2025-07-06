@@ -273,7 +273,7 @@ export class YahooProvider implements PriceProvider {
     const now = Date.now();
 
     return Array.from(this.retrySuppressionMap.entries())
-      .filter(([_, failTime]) => now - failTime < suppressionPeriod)
+      .filter(([, failTime]) => now - failTime < suppressionPeriod)
       .map(([symbol, failTime]) => ({
         symbol,
         failTime: new Date(failTime),

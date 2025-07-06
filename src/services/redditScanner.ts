@@ -11,6 +11,22 @@ interface RedditMention {
   rawMentions?: string[]; // For debug mode
 }
 
+interface RedditPost {
+  data: {
+    title?: string;
+    selftext?: string;
+    score?: number;
+    num_comments?: number;
+    upvote_ratio?: number;
+  };
+}
+
+interface RedditResponse {
+  data: {
+    children: RedditPost[];
+  };
+}
+
 interface RedditScanResult {
   mentions: RedditMention[];
   debugInfo?: {
@@ -199,7 +215,7 @@ export class RedditScanner {
     return Math.max(0, Math.min(1, positiveCount / total));
   }
 
-  private calculateEngagementScore(post: any): number {
+  private calculateEngagementScore(post: RedditPost): number {
     // Enhanced engagement scoring
     const upvotes = post.data.score || 0;
     const comments = post.data.num_comments || 0;
@@ -272,7 +288,7 @@ export class RedditScanner {
           `https://www.reddit.com/r/${subreddit}/hot.json?limit=100`,
         );
 
-        const data = await response.json();
+        const data = await response.json() as RedditResponse;
 
         if (!data.data?.children) {
           console.warn(`⚠️ No data from r/${subreddit}`);
@@ -282,7 +298,7 @@ export class RedditScanner {
         debugInfo.subredditsScanned.push(subreddit);
         const isCrypto = this.isCryptoSubreddit(subreddit);
 
-        data.data.children.forEach((post: any) => {
+        data.data.children.forEach((post: RedditPost) => {
           const title = (post.data.title || "").toUpperCase();
           const body = (post.data.selftext || "").toUpperCase();
           const text = `${title} ${body}`;

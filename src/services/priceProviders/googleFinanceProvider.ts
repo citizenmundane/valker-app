@@ -96,7 +96,7 @@ export class GoogleFinanceProvider implements PriceProvider {
 
         // Add delay between requests
         await this.delay(2000);
-      } catch (error) {
+      } catch {
         console.warn(`⚠️ Google Finance: Failed to fetch ${symbol}`);
       }
     }
